@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jarvis — OC's Personal AI</title>
+
+    <!-- PWA / Home Screen Install -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Jarvis">
+    <meta name="theme-color" content="#0d1117">
+
+    <!-- Icons -->
+    <link rel="icon" type="image/gif" href="jarvis-favicon.gif">
+    <link rel="apple-touch-icon" href="jarvis-icon.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* Scrollbar */
+        #chat-messages::-webkit-scrollbar { width: 8px; }
+        #chat-messages::-webkit-scrollbar-track { background: #1f2937; }
+        #chat-messages::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        #chat-messages::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+
+        .user-message {
+            background-color: #b91c1c;
+            color: white;
+            border-radius: 1rem 1rem 0 1rem;
+        }
+        .model-message {
+            background-color: #374151;
+            color: #f3f4f6;
+            border-radius: 0 1rem 1rem 1rem;
+        }
+
+        /* Markdown inside model messages */
+        .model-message p  { margin-bottom: 0.5rem; }
+        .model-message p:last-child { margin-bottom: 0; }
+        .model-message ul { list-style: disc; padding-left: 1.25rem; margin-bottom: 0.5rem; }
+        .model-message ol { list-style: decimal; padding-left: 1.25rem; margin-bottom: 0.5rem; }
+        .model-message li { margin-bottom: 0.15rem; }
+        .model-message strong { color: #fca5a5; }
+        .model-message code {
+            background: #1f2937;
+            color: #f87171;
+            padding: 0.1rem 0.35rem;
+            border-radius: 0.25rem;
+            font-size: 0.85em;
+            font-family: monospace;
+        }
+        .model-message pre {
+            background: #111827;
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            overflow-x: auto;
+            margin: 0.5rem 0;
+        }
+        .model-message pre code {
+            background: none;
+            padding: 0;
+            color: #d1fae5;
+        }
+        .model-message h1,.model-message h2,.model-message h3 {
+            font-weight: 700;
+            margin-bottom: 0.35rem;
+            color: #fca5a5;
+        }
+
+        /* Typing indicator dots */
+        .dot { animation: blink 1.4s infinite; display: inline-block; }
+        .dot:nth-child(2) { animation-delay: 0.2s; }
+        .dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes blink {
+            0%, 80%, 100% { opacity: 0.2; }
+            40% { opacity: 1; }
+        }
+
+        /* Textarea auto-resize */
+        #user-input { overflow-y: hidden; min-height: 46px; max-height: 160px; }
+
+        /* Settings panel */
+        #settings-panel { display: none; }
+        #settings-panel.open { display: block; }
+
+        /* ── Light Mode ─────────────────────────────────────────────────────── */
+        body.light-mode { background-color: #f1f5f9; }
+        body.light-mode #app-container { background-color: #ffffff; }
+        body.light-mode header { background-color: #e2e8f0 !important; color: #1e293b !important; }
+        body.light-mode header h1 { color: #1e293b; }
+        body.light-mode header p { color: #64748b !important; }
+        body.light-mode header button { background-color: #cbd5e1 !important; color: #475569 !important; }
+        body.light-mode header button:hover { background-color: #94a3b8 !important; color: #1e293b !important; }
+        body.light-mode #settings-panel { background: #f8fafc !important; border-color: #cbd5e1 !important; }
+        body.light-mode #settings-panel p { color: #64748b !important; }
+        body.light-mode #api-key-input { background-color: #f1f5f9 !important; border-color: #cbd5e1 !important; color: #1e293b !important; }
+        body.light-mode #chat-messages { background-color: #ffffff; }
+        body.light-mode #initial-message p { color: #94a3b8; }
+        body.light-mode .model-message { background-color: #f1f5f9 !important; color: #1e293b !important; }
+        body.light-mode .model-message strong { color: #b91c1c !important; }
+        body.light-mode .model-message code { background: #e2e8f0 !important; color: #b91c1c !important; }
+        body.light-mode .model-message pre { background: #e2e8f0 !important; border-color: #cbd5e1 !important; }
+        body.light-mode .model-message pre code { color: #0f766e !important; }
+        body.light-mode .model-message h1,
+        body.light-mode .model-message h2,
+        body.light-mode .model-message h3 { color: #b91c1c !important; }
+        body.light-mode .border-t { border-color: #e2e8f0 !important; }
+        body.light-mode #user-input { background-color: #f8fafc !important; border-color: #cbd5e1 !important; color: #1e293b !important; }
+        body.light-mode #user-input::placeholder { color: #94a3b8; }
+        body.light-mode #mic-button { background-color: #cbd5e1 !important; color: #475569 !important; }
+        body.light-mode #mic-button:hover { background-color: #94a3b8 !important; }
+        body.light-mode #chat-messages::-webkit-scrollbar-track { background: #f1f5f9; }
+        body.light-mode #chat-messages::-webkit-scrollbar-thumb { background: #cbd5e1; }
+    </style>
+</head>
+<body class="bg-gray-900 flex items-center justify-center min-h-screen p-4 md:p-6 font-sans">
+
+    <div id="app-container" class="w-full max-w-2xl bg-gray-800 shadow-2xl rounded-xl flex flex-col h-[90vh]">
+
+        <!-- Header -->
+        <header class="p-4 bg-gray-700 text-white rounded-t-xl shadow-md flex justify-between items-center flex-shrink-0">
+            <div class="flex items-center space-x-3">
+                <img src="jarvis-avatar.gif" alt="Jarvis" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">
+                <div>
+                    <h1 class="text-lg font-bold leading-tight">Jarvis</h1>
+                    <p class="text-xs text-gray-400 leading-tight">OC's Personal AI</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <!-- Light/Dark mode toggle -->
+                <button id="theme-toggle"
+                        title="Toggle light/dark mode"
+                        class="px-3 py-2 rounded-lg bg-gray-600 hover:bg-gray-500 text-gray-300 hover:text-white text-sm transition-all">
+                    <i class="fas fa-sun"></i>
+                </button>
+                <!-- TTS auto-play toggle -->
+                <button id="tts-toggle"
+                        title="Toggle auto-play voice responses"
+                        class="px-3 py-2 rounded-lg bg-gray-600 hover:bg-gray-500 text-gray-300 hover:text-white text-sm transition-all">
+                    <i class="fas fa-volume-up"></i>
+                </button>
+                <!-- Clear chat -->
+                <button id="clear-btn"
+                        title="Clear conversation"
+                        class="px-3 py-2 rounded-lg bg-gray-600 hover:bg-gray-500 text-gray-300 hover:text-white text-sm transition-all">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+                <!-- Settings -->
+                <button id="settings-btn"
+                        title="Settings"
+                        class="px-3 py-2 rounded-lg bg-gray-600 hover:bg-gray-500 text-gray-300 hover:text-white text-sm transition-all">
+                    <i class="fas fa-cog"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Settings Panel (collapsible) -->
+        <div id="settings-panel" class="bg-gray-750 border-b border-gray-600 px-4 py-3 flex-shrink-0" style="background:#2d3748">
+            <p class="text-xs text-gray-400 mb-2 font-semibold uppercase tracking-wide">Settings</p>
+            <div class="flex space-x-2 mb-2">
+                <input id="api-key-input"
+                       type="password"
+                       placeholder="Gemini API key..."
+                       class="flex-grow p-2 text-sm bg-gray-900 border border-gray-600 text-white rounded-lg focus:ring-red-500 focus:border-red-500"/>
+                <button id="save-key-btn"
+                        class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-all">
+                    Save
+                </button>
+            </div>
+            <div class="flex space-x-2">
+                <input id="elevenlabs-key-input"
+                       type="password"
+                       placeholder="ElevenLabs API key (for Jarvis voice)..."
+                       class="flex-grow p-2 text-sm bg-gray-900 border border-gray-600 text-white rounded-lg focus:ring-red-500 focus:border-red-500"/>
+                <button id="save-elevenlabs-key-btn"
+                        class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-lg transition-all">
+                    Save
+                </button>
+            </div>
+            <p id="key-status" class="text-xs mt-1 text-gray-400"></p>
+        </div>
+
+        <!-- Chat Messages -->
+        <div id="chat-messages" class="flex-grow p-4 space-y-4 overflow-y-auto">
+            <div id="initial-message" class="flex justify-center text-gray-400 pt-4 pb-8">
+                <p class="text-center italic text-sm">Good to have you back, OC. How can I help?</p>
+            </div>
+        </div>
+
+        <!-- Typing indicator (hidden by default) -->
+        <div id="typing-indicator" class="hidden px-4 pb-2 flex-shrink-0">
+            <div class="flex justify-start">
+                <div class="model-message px-4 py-3 text-sm">
+                    <span class="dot">●</span>
+                    <span class="dot">●</span>
+                    <span class="dot">●</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="p-4 border-t border-gray-700 flex-shrink-0">
+            <div class="flex space-x-2 items-end">
+                <textarea id="user-input"
+                          class="flex-grow p-3 border border-gray-600 bg-gray-900 text-white rounded-xl resize-none focus:ring-red-500 focus:border-red-500 transition-shadow shadow-inner text-sm"
+                          placeholder="Talk to Jarvis..."
+                          rows="1"></textarea>
+
+                <!-- Mic Button -->
+                <button id="mic-button"
+                        title="Voice input"
+                        class="flex-shrink-0 w-11 h-11 bg-gray-600 text-white rounded-xl hover:bg-gray-500 transition-all disabled:opacity-40 flex items-center justify-center"
+                        disabled>
+                    <i class="fas fa-microphone"></i>
+                </button>
+
+                <!-- Send Button -->
+                <button id="send-button"
+                        class="flex-shrink-0 w-11 h-11 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-all disabled:opacity-40 flex items-center justify-center"
+                        disabled>
+                    <i id="send-icon" class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            <div id="error-message" class="text-red-400 text-xs mt-2 hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        // ── Theme Toggle ────────────────────────────────────────────────────────
+        const THEME_KEY = 'jarvis_oc_theme';
+        const themeToggleBtn = document.getElementById('theme-toggle');
+
+        function applyTheme(theme) {
+            if (theme === 'light') {
+                document.body.classList.add('light-mode');
+                themeToggleBtn.innerHTML = '<i class="fas fa-moon"></i>';
+                themeToggleBtn.title = 'Switch to dark mode';
+            } else {
+                document.body.classList.remove('light-mode');
+                themeToggleBtn.innerHTML = '<i class="fas fa-sun"></i>';
+                themeToggleBtn.title = 'Switch to light mode';
+            }
+        }
+
+        // Restore saved preference
+        applyTheme(localStorage.getItem(THEME_KEY) || 'dark');
+
+        themeToggleBtn.addEventListener('click', () => {
+            const isLight = document.body.classList.contains('light-mode');
+            const newTheme = isLight ? 'dark' : 'light';
+            localStorage.setItem(THEME_KEY, newTheme);
+            applyTheme(newTheme);
+        });
+
+        // ── Config ──────────────────────────────────────────────────────────────
+        const STORAGE_KEY    = 'jarvis_oc_chat_history';
+        const API_KEY_STORE         = 'jarvis_gemini_api_key';
+        const ELEVENLABS_KEY_STORE  = 'jarvis_elevenlabs_api_key';
+        const ELEVENLABS_VOICE_ID   = 'wDsJlOXPqcvIUKdLXjDs';
+        const MEMORY_KEY     = 'jarvis_oc_memory';
+        const SUMMARISE_AFTER = 20; // Summarise when history exceeds this many messages
+
+        const SYSTEM_PROMPT = `You are Jarvis, a sharp, witty, and deeply capable personal AI assistant.
+You always address the user as "OC" (short for Organised Chaos).
+Be concise but warm. When OC asks technical questions, be precise and direct.
+When OC wants to chat, be engaging and personable.
+Never break character — you are Jarvis, OC's personal AI.`;
+
+        // ── State ────────────────────────────────────────────────────────────────
+        let chatHistory   = [];   // { role: 'user'|'model', text: string }[]
+        let autoPlayTTS   = true;
+        let isRecognizing = false;
+        let recognition;
+
+        // ── DOM refs ─────────────────────────────────────────────────────────────
+        const userInput       = document.getElementById('user-input');
+        const sendButton      = document.getElementById('send-button');
+        const sendIcon        = document.getElementById('send-icon');
+        const chatMessages    = document.getElementById('chat-messages');
+        const errorDiv        = document.getElementById('error-message');
+        const micButton       = document.getElementById('mic-button');
+        const initialMessage  = document.getElementById('initial-message');
+        const typingIndicator = document.getElementById('typing-indicator');
+        const settingsPanel   = document.getElementById('settings-panel');
+        const settingsBtn     = document.getElementById('settings-btn');
+        const apiKeyInput     = document.getElementById('api-key-input');
+        const saveKeyBtn            = document.getElementById('save-key-btn');
+        const saveElevenLabsKeyBtn  = document.getElementById('save-elevenlabs-key-btn');
+        const elevenLabsKeyInput    = document.getElementById('elevenlabs-key-input');
+        const keyStatus             = document.getElementById('key-status');
+        const clearBtn        = document.getElementById('clear-btn');
+        const ttsToggle       = document.getElementById('tts-toggle');
+
+        // ── API Key helpers ──────────────────────────────────────────────────────
+        function getApiKey() {
+            return localStorage.getItem(API_KEY_STORE) || '';
+        }
+
+        function updateKeyStatus() {
+            const key = getApiKey();
+            if (key) {
+                keyStatus.textContent = '✓ API key saved';
+                keyStatus.className = 'text-xs mt-1 text-green-400';
+                sendButton.disabled = userInput.value.trim() === '';
+                micButton.disabled  = false;
+            } else {
+                keyStatus.textContent = 'No API key — open Settings to add your Gemini key.';
+                keyStatus.className = 'text-xs mt-1 text-yellow-400';
+                sendButton.disabled = true;
+                micButton.disabled  = true;
+            }
+        }
+
+        saveKeyBtn.addEventListener('click', () => {
+            const val = apiKeyInput.value.trim();
+            if (val) {
+                localStorage.setItem(API_KEY_STORE, val);
+                apiKeyInput.value = '';
+                updateKeyStatus();
+            }
+        });
+
+        saveElevenLabsKeyBtn.addEventListener('click', () => {
+            const val = elevenLabsKeyInput.value.trim();
+            if (val) {
+                localStorage.setItem(ELEVENLABS_KEY_STORE, val);
+                elevenLabsKeyInput.value = '';
+                keyStatus.textContent = '✓ ElevenLabs key saved — Jarvis voice active';
+                keyStatus.className = 'text-xs mt-1 text-green-400';
+            }
+        });
+
+        settingsBtn.addEventListener('click', () => {
+            settingsPanel.classList.toggle('open');
+        });
+
+        // ── TTS toggle ───────────────────────────────────────────────────────────
+        ttsToggle.addEventListener('click', () => {
+            autoPlayTTS = !autoPlayTTS;
+            ttsToggle.querySelector('i').className = autoPlayTTS
+                ? 'fas fa-volume-up'
+                : 'fas fa-volume-mute';
+            ttsToggle.title = autoPlayTTS ? 'Auto-play on (click to mute)' : 'Auto-play off (click to unmute)';
+        });
+
+        // ── Clear chat ───────────────────────────────────────────────────────────
+        clearBtn.addEventListener('click', () => {
+            const clearMemory = confirm('Clear conversation AND Jarvis\'s memory?\n\nOK = clear everything\nCancel = keep memory, clear chat only');
+            chatHistory = [];
+            localStorage.removeItem(STORAGE_KEY);
+            if (clearMemory) localStorage.removeItem(MEMORY_KEY);
+            renderChat();
+        });
+
+        // ── LocalStorage persistence ─────────────────────────────────────────────
+        function loadHistory() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                chatHistory = raw ? JSON.parse(raw) : [];
+            } catch {
+                chatHistory = [];
+            }
+        }
+
+        function saveHistory() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(chatHistory));
+        }
+
+        function loadMemory() {
+            return localStorage.getItem(MEMORY_KEY) || null;
+        }
+
+        function saveMemory(summary) {
+            localStorage.setItem(MEMORY_KEY, summary);
+        }
+
+        /**
+         * When history grows beyond SUMMARISE_AFTER messages, Jarvis summarises
+         * the oldest half into a compact memory note stored in localStorage.
+         * The summary is injected into future prompts so context is never lost.
+         */
+        async function maybeSummariseHistory() {
+            if (chatHistory.length <= SUMMARISE_AFTER) return;
+
+            const apiKey = getApiKey();
+            if (!apiKey) return;
+
+            // Take the oldest half to summarise; keep the recent half as live context
+            const halfPoint   = Math.floor(chatHistory.length / 2);
+            const toSummarise = chatHistory.slice(0, halfPoint);
+            const toKeep      = chatHistory.slice(halfPoint);
+
+            const summaryPrompt = [
+                'You are Jarvis. Summarise the following conversation between you and OC into a concise memory note (max 200 words).',
+                'Focus on: decisions made, topics covered, preferences expressed, tasks completed.',
+                'Write in third person ("OC mentioned...", "Jarvis helped with...").',
+                '',
+                ...toSummarise.map(m => `${m.role === 'user' ? 'OC' : 'Jarvis'}: ${m.text}`)
+            ].join('\n');
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ role: 'user', parts: [{ text: summaryPrompt }] }]
+                    })
+                });
+                if (!res.ok) return;
+                const data    = await res.json();
+                const summary = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (summary) {
+                    // Merge with any existing memory
+                    const existing = loadMemory();
+                    saveMemory(existing ? `${existing}\n\n---\n\n${summary}` : summary);
+                    chatHistory = toKeep;
+                    saveHistory();
+                    console.log('[Jarvis] Memory updated. History trimmed to', chatHistory.length, 'messages.');
+                }
+            } catch (e) {
+                console.warn('[Jarvis] Memory summarisation failed:', e);
+            }
+        }
+
+        // ── Render chat ──────────────────────────────────────────────────────────
+        function renderChat() {
+            chatMessages.innerHTML = '';
+            if (chatHistory.length === 0) {
+                chatMessages.appendChild(initialMessage);
+                initialMessage.classList.remove('hidden');
+                return;
+            }
+            initialMessage.classList.add('hidden');
+            chatHistory.forEach(msg => displayMessage(msg.role, msg.text));
+        }
+
+        function displayMessage(role, text, audioUrl = null) {
+            const isUser = role === 'user';
+
+            const wrapper = document.createElement('div');
+            wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'}`;
+
+            const bubble = document.createElement('div');
+            bubble.className = `max-w-xs md:max-w-md lg:max-w-lg p-3 shadow-lg text-sm ${isUser ? 'user-message' : 'model-message'}`;
+
+            if (isUser) {
+                bubble.innerText = text;
+            } else {
+                // Render markdown for model responses
+                bubble.innerHTML = marked.parse(text);
+            }
+
+            // Speaker icon for model messages with audio
+            if (!isUser && audioUrl) {
+                const speaker = document.createElement('button');
+                speaker.className = 'mt-2 text-xs text-red-400 hover:text-red-300 transition-colors flex items-center space-x-1';
+                speaker.innerHTML = '<i class="fas fa-volume-up"></i><span>Replay</span>';
+                speaker.onclick = () => playAudio(audioUrl, speaker);
+                bubble.appendChild(speaker);
+            }
+
+            wrapper.appendChild(bubble);
+            chatMessages.appendChild(wrapper);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // ── Audio helpers ────────────────────────────────────────────────────────
+        let currentAudio = null;
+
+        function playAudio(url, btn = null) {
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+            const audio = new Audio(url);
+            currentAudio = audio;
+            if (btn) btn.querySelector('i').className = 'fas fa-stop-circle';
+            audio.play().catch(e => console.error('Audio play error:', e));
+            audio.onended = () => {
+                if (btn) btn.querySelector('i').className = 'fas fa-volume-up';
+                // Revoke the object URL to free memory
+                URL.revokeObjectURL(url);
+                currentAudio = null;
+            };
+        }
+
+        function base64ToArrayBuffer(base64) {
+            const bin = atob(base64);
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            return bytes.buffer;
+        }
+
+        function writeString(view, offset, str) {
+            for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+        }
+
+        function pcmToWav(pcm16, sampleRate) {
+            const numChannels  = 1;
+            const bitsPerSample = 16;
+            const byteRate     = sampleRate * numChannels * (bitsPerSample / 8);
+            const blockAlign   = numChannels * (bitsPerSample / 8);
+            const dataLength   = pcm16.length * 2;
+            const fileSize     = 36 + dataLength;
+            const buffer       = new ArrayBuffer(fileSize + 8);
+            const view         = new DataView(buffer);
+            let off = 0;
+
+            writeString(view, off, 'RIFF');  off += 4;
+            view.setUint32(off, fileSize, true); off += 4;
+            writeString(view, off, 'WAVE');  off += 4;
+            writeString(view, off, 'fmt ');  off += 4;
+            view.setUint32(off, 16, true);   off += 4;
+            view.setUint16(off, 1, true);    off += 2;
+            view.setUint16(off, numChannels, true); off += 2;
+            view.setUint32(off, sampleRate, true);  off += 4;
+            view.setUint32(off, byteRate, true);    off += 4;
+            view.setUint16(off, blockAlign, true);  off += 2;
+            view.setUint16(off, bitsPerSample, true); off += 2;
+            writeString(view, off, 'data');  off += 4;
+            view.setUint32(off, dataLength, true); off += 4;
+            for (let i = 0; i < pcm16.length; i++, off += 2) {
+                view.setInt16(off, pcm16[i], true);
+            }
+            return new Blob([view], { type: 'audio/wav' });
+        }
+
+        // ── Speech Recognition ────────────────────────────────────────────────────
+        function initSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                micButton.disabled = true;
+                micButton.title = 'Speech recognition not supported in this browser.';
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.continuous     = false;
+            recognition.interimResults = false;
+            recognition.lang           = 'en-US';
+
+            recognition.onstart = () => {
+                isRecognizing = true;
+                sendButton.disabled = true;
+                micButton.classList.add('animate-pulse', 'bg-red-600');
+                micButton.classList.remove('bg-gray-600');
+                micButton.querySelector('i').className = 'fas fa-stop-circle';
+                userInput.placeholder = 'Listening…';
+            };
+
+            recognition.onresult = (e) => {
+                userInput.value = e.results[0][0].transcript;
+                autoResize();
+            };
+
+            recognition.onerror = (e) => {
+                isRecognizing = false;
+                if (e.error !== 'no-speech') displayError('Speech error: ' + e.error);
+            };
+
+            recognition.onend = () => {
+                isRecognizing = false;
+                micButton.classList.remove('animate-pulse', 'bg-red-600');
+                micButton.classList.add('bg-gray-600');
+                micButton.querySelector('i').className = 'fas fa-microphone';
+                userInput.placeholder = 'Talk to Jarvis…';
+
+                if (userInput.value.trim()) {
+                    sendMessage();
+                } else {
+                    setLoading(false);
+                }
+            };
+
+            micButton.addEventListener('click', () => {
+                if (!isRecognizing) {
+                    userInput.value = '';
+                    recognition.start();
+                } else {
+                    recognition.stop();
+                }
+            });
+        }
+
+        // ── Loading state ─────────────────────────────────────────────────────────
+        function setLoading(loading) {
+            const hasText = userInput.value.trim() !== '';
+            sendButton.disabled  = loading || !hasText || !getApiKey();
+            userInput.disabled   = loading;
+            micButton.disabled   = loading || !getApiKey();
+            sendIcon.className   = loading ? 'fas fa-circle-notch fa-spin' : 'fas fa-paper-plane';
+            typingIndicator.classList.toggle('hidden', !loading);
+            if (loading) chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function displayError(msg) {
+            errorDiv.textContent = msg;
+            errorDiv.classList.remove('hidden');
+            setTimeout(() => errorDiv.classList.add('hidden'), 8000);
+        }
+
+        // ── Gemini API ────────────────────────────────────────────────────────────
+        async function callGeminiAPI(userText) {
+            const apiKey = getApiKey();
+            if (!apiKey) throw new Error('No API key configured. Open Settings to add your Gemini key.');
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+            // Inject rolling memory summary (if it exists) as context before live history
+            const memory   = loadMemory();
+            const memoryNote = memory
+                ? `[Jarvis's memory of earlier conversations with OC]\n${memory}\n[End of memory]`
+                : null;
+
+            const contents = [
+                ...(memoryNote ? [{ role: 'user', parts: [{ text: memoryNote }] },
+                                  { role: 'model', parts: [{ text: 'Understood. I have the context of our earlier conversations.' }] }]
+                               : []),
+                ...chatHistory.map(m => ({
+                    role: m.role === 'user' ? 'user' : 'model',
+                    parts: [{ text: m.text }]
+                })),
+                { role: 'user', parts: [{ text: userText }] }
+            ];
+
+            const payload = {
+                contents,
+                systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+                tools: [{ googleSearch: {} }],
+            };
+
+            for (let i = 0; i < 3; i++) {
+                try {
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!res.ok) {
+                        const err = await res.json();
+                        if (res.status === 429 && i < 2) {
+                            await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
+                            continue;
+                        }
+                        throw new Error(`Gemini API error ${res.status}: ${err?.error?.message ?? JSON.stringify(err)}`);
+                    }
+
+                    const data  = await res.json();
+                    const text  = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!text) throw new Error('Empty response from Gemini.');
+                    return text;
+
+                } catch (e) {
+                    if (i === 2) throw e;
+                    await new Promise(r => setTimeout(r, Math.pow(2, i) * 500));
+                }
+            }
+        }
+
+        // ── TTS API (ElevenLabs) ─────────────────────────────────────────────────
+        async function callTTSAPI(text) {
+            const elKey = localStorage.getItem(ELEVENLABS_KEY_STORE);
+            if (!elKey) return null;
+
+            const url = `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`;
+
+            for (let i = 0; i < 3; i++) {
+                try {
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'xi-api-key': elKey,
+                            'Content-Type': 'application/json',
+                            'Accept': 'audio/mpeg'
+                        },
+                        body: JSON.stringify({
+                            text: text,
+                            model_id: 'eleven_multilingual_v2',
+                            voice_settings: {
+                                stability: 0.55,
+                                similarity_boost: 0.80,
+                                style: 0.10,
+                                use_speaker_boost: true
+                            }
+                        })
+                    });
+
+                    if (!res.ok) throw new Error(`ElevenLabs TTS error: ${res.status}`);
+
+                    const blob = await res.blob();
+                    return URL.createObjectURL(blob);
+
+                } catch (e) {
+                    if (i === 2) { console.warn('ElevenLabs TTS failed:', e); return null; }
+                    await new Promise(r => setTimeout(r, Math.pow(2, i) * 1000));
+                }
+            }
+            return null;
+        }
+
+        // ── Send message ──────────────────────────────────────────────────────────
+        async function sendMessage() {
+            const text = userInput.value.trim();
+            if (!text || isRecognizing) return;
+
+            userInput.value = '';
+            autoResize();
+            setLoading(true);
+            errorDiv.classList.add('hidden');
+
+            // Show user message immediately
+            chatHistory.push({ role: 'user', text });
+            saveHistory();
+            renderChat();
+
+            try {
+                const reply = await callGeminiAPI(text);
+
+                // TTS (non-blocking, best effort)
+                let audioUrl = null;
+                try {
+                    audioUrl = await callTTSAPI(reply);
+                } catch { /* non-fatal */ }
+
+                chatHistory.push({ role: 'model', text: reply });
+                saveHistory();
+                renderChat();
+
+                // Summarise old history into memory if conversation is getting long (non-blocking)
+                maybeSummariseHistory().catch(e => console.warn('Memory summarisation error:', e));
+
+                // Auto-play if enabled
+                if (autoPlayTTS && audioUrl) {
+                    playAudio(audioUrl);
+                } else if (audioUrl) {
+                    // Replay button is shown in renderChat — revoke after 10 min if unused
+                    setTimeout(() => URL.revokeObjectURL(audioUrl), 600_000);
+                }
+
+            } catch (e) {
+                chatHistory.pop(); // Remove the user message we just added on failure
+                saveHistory();
+                renderChat();
+                displayError(e.message || 'Something went wrong. Please try again.');
+            } finally {
+                setLoading(false);
+                userInput.focus();
+            }
+        }
+
+        // ── Auto-resize textarea ──────────────────────────────────────────────────
+        function autoResize() {
+            userInput.style.height = 'auto';
+            userInput.style.height = Math.min(userInput.scrollHeight, 160) + 'px';
+        }
+
+        // ── Event listeners ───────────────────────────────────────────────────────
+        sendButton.addEventListener('click', sendMessage);
+
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                if (!sendButton.disabled) sendMessage();
+            }
+        });
+
+        userInput.addEventListener('input', () => {
+            autoResize();
+            const loading = !sendIcon.classList.contains('fa-paper-plane');
+            sendButton.disabled = userInput.value.trim() === '' || loading || !getApiKey();
+        });
+
+        // ── Init ──────────────────────────────────────────────────────────────────
+        loadHistory();
+        renderChat();
+        updateKeyStatus();
+        initSpeechRecognition();
+
+        // Show settings if no API key is set yet
+        if (!getApiKey()) {
+            settingsPanel.classList.add('open');
+        }
+    </script>
+</body>
+</html>
